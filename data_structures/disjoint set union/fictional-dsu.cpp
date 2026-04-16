@@ -1,3 +1,6 @@
+#include <numeric>
+#include <vector>
+
 // СНМ с фиктивными корнями
 // T - тип фиктивного корня
 
@@ -8,7 +11,7 @@ public:
         std::iota(p.begin(), p.end(), 0);
     }
 
-    void set_root(int u, T& value) {
+    void set_root(int u, const T& value) {
         u = root(u);
         roots[u] = value;
     }

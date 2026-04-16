@@ -1,3 +1,5 @@
+#include <numeric>
+#include <vector>
 // весовая эвристика
 
 class DSU {
