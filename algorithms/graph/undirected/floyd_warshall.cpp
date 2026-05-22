@@ -10,12 +10,13 @@ vector<vector<ll>> g; //вес ребра, если оно существует,
 vector<vector<vector<ll>>> dp; //классика
 vector<vector<ll>> dp_optimized; //для оптимайзинга
 
-void Floyd_Worshell() {
+void Floyd_Warshall() {
     for (int i=0; i<n; ++i) {
         for (int j=0; j<n; ++j) {
             dp[i][j][0] = g[i][j];
         }
     }
+
     for (int k=0; k<n; ++k) {
         for (int i=0; i<n; ++i) {
             for (int j=0; j<n; ++j) {
@@ -23,6 +24,7 @@ void Floyd_Worshell() {
             }
         }
     }
+
     for (int i=0; i<n; ++i) {
         for (int j=0; j<n; ++j) {
             if (dp[i][j][n-1] > dp[i][n-1][n-1] + dp[n-1][j][n-1]) {
@@ -33,7 +35,7 @@ void Floyd_Worshell() {
     }
 }
 
-void Floyd_Worshell_Optimized() {
+void Floyd_Warshall_Optimized() {
     for (int i=0; i<n; ++i) {
         for (int j=0; j<n; ++j) {
             dp_optimized[i][j] = g[i][j];
