@@ -4,13 +4,13 @@ using namespace std;
 
 struct Vertex {
     size_t remain; //сколько рёбер осталось - нужно только для поиска эйлерова пути. При инициализации - степень вершины
-}
+};
 
 struct Edge {
     int from; //вершина, откуда вышли
     int to; // вершина, в которую идем
     bool deleted = false; //удалено ли ребро при проходе цикла
-}
+};
 
 vector<vector<Edge>> g;
 vector<Vertex> V;
