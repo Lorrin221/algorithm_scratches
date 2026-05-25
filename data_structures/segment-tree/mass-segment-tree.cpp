@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#define int long long
 
 template <typename Node,
           typename UpdateNode,
@@ -25,7 +26,7 @@ private:
         int tree_mid = (tree_left + tree_right) / 2;
         build(index * 2, tree_left, tree_mid, start);
         build(index * 2 + 1, tree_mid + 1, tree_right, start);
-        tree[index] = merge_(tree[index * 2], tree[index * 2 + 1], tree_left, tree_right);
+        tree[index] = merge_(tree[index * 2], tree[index * 2 + 1]);
     }
 
     Node get(int index, int tree_left, int tree_right, int left, int right) {
@@ -43,7 +44,7 @@ private:
 
     void update(int index, int tree_left, int tree_right, int left, int right, UpdateNode& update_node) {
         if (left <= tree_left && tree_right <= right) {
-            compose_(lazy[index], update_node, tree_left, tree_right);
+            compose_(lazy[index], update_node);
             push(index, tree_left, tree_right);
             return;
         }
@@ -54,27 +55,27 @@ private:
 
         int tree_mid = (tree_left + tree_right) / 2;
         update(index * 2, tree_left, tree_mid, left, right, update_node);
-        update(index * 2 + 1, tree_mid + 1, left, right, update_node);
+        update(index * 2 + 1, tree_mid + 1, tree_right, left, right, update_node);
 
-        tree[index] = merge_(tree[index * 2], tree[index * 2 + 1], tree_left, tree_right);
+        tree[index] = merge_(tree[index * 2], tree[index * 2 + 1]);
     }
 
     void push(int index, int tree_left, int tree_right) {
-        update_(tree[index], lazy[index], tree_left, tree_right);
-        if (tree_left == tree_right) return;
+        update_(tree[index], lazy[index]);
 
-        int tree_mid = (tree_left + tree_right) / 2;
-        compose_(lazy[index * 2], lazy[index], tree_left, tree_mid);
-        compose_(lazy[index * 2 + 1], lazy[index], tree_mid + 1, tree_right);
+        if (tree_left != tree_right) {
+            compose_(lazy[index * 2], lazy[index]);
+            compose_(lazy[index * 2 + 1], lazy[index]);
+        }
 
         lazy[index] = UpdateNode();
     }
 
 public:
     SegmentTree(const std::vector<Node>& start,
-                Merge& merge,
-                Update& update,
-                Compose& compose)
+                Merge merge,
+                Update update,
+                Compose compose)
                     : n(start.size())
                     , merge_(merge)
                     , update_(update)
@@ -92,3 +93,55 @@ public:
         return get(1, 0, n - 1, left, right);
     }
 };
+
+struct Node {
+    // code here
+};
+
+struct UpdateNode {
+    // code here
+
+    bool operator==(const UpdateNode& other) const {
+        // code here
+        bool is_equal = true;
+        return is_equal;
+    }
+};
+
+Node Merge(const Node& node1, const Node& node2) {
+    Node res;
+
+    // code here
+
+    return res;
+}
+
+void Compose(UpdateNode& node1, const UpdateNode& node2) {
+    // code here
+}
+
+void Update(Node& node, const UpdateNode& update_node) {
+    if (update_node == UpdateNode()) return;
+
+    // code here
+}
+
+signed main() {
+    int n, k;
+    std::cin >> n >> k;
+    std::vector<Node> vc(n);
+
+    auto merge_func = Merge;
+    auto update_func = Update;
+    auto compose_func = Compose;
+
+    SegmentTree<Node,
+                UpdateNode,
+                decltype(merge_func),
+                decltype(update_func),
+                decltype(compose_func)> T(vc, merge_func, update_func, compose_func);
+
+    for (int i = 0; i < k; ++i) {
+        // code here
+    }
+}
