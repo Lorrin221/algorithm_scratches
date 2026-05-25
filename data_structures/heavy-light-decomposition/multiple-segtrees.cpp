@@ -18,7 +18,7 @@ private:
     Compose compose_;
 
 private:
-    void build(int index, int tree_left, int tree_right, const std::vector<Node>& start) {
+    void build(int index, int tree_left, int tree_right, std::vector<Node>& start) {
         if (tree_left == tree_right) {
             tree[index] = start[tree_left];
             return;
@@ -73,7 +73,7 @@ private:
     }
 
 public:
-    SegmentTree(const std::vector<Node>& start,
+    SegmentTree(std::vector<Node>& start,
                 Merge merge,
                 Update update,
                 Compose compose)
@@ -88,7 +88,7 @@ public:
 
     SegmentTree() = default;
 
-    void init(const std::vector<Node>& start,
+    void init(std::vector<Node>& start,
                 Merge merge,
                 Update update,
                 Compose compose) {
@@ -97,8 +97,8 @@ public:
         update_ = update;
         compose_ = compose;
 
-        tree.resize(4 * n, Node());
-        lazy.resize(4 * n, UpdateNode());
+        tree.assign(4 * n, Node());
+        lazy.assign(4 * n, UpdateNode());
         build(1, 0, n - 1, start);
     }
 
@@ -111,18 +111,9 @@ public:
     }
 };
 
-struct Vertex {
-    int id;
-    // int weight;
-
-    bool operator==(const Vertex& other) const {
-        return id == other.id;
-    }
-};
-
+template<typename Node>
 struct Edge {
-    Vertex from, to;
-    // int weight;
+    Node from, to;
 };
 
 template <typename Node,
@@ -132,7 +123,7 @@ template <typename Node,
           typename Compose>
 struct HeavyPath {
     int id;
-    std::vector<Vertex> state;
+    std::vector<Node> state;
     SegmentTree<Node,
                 UpdateNode,
                 Merge,
@@ -141,8 +132,8 @@ struct HeavyPath {
 
     explicit HeavyPath(int id) : id(id), segment_tree() {}
 
-    Vertex top() const {
-        return state.back();
+    Node top() const {
+        return state.front();
     }
 };
 
@@ -153,7 +144,7 @@ template <typename Node,
           typename Compose>
 class HeavyLightDecomposition {
 private:
-    using Tree = const std::vector<std::vector<Edge>>&;
+    using Tree = const std::vector<std::vector<Edge<Node>>>&;
     int n;
     int total_paths = 0;
 
@@ -167,7 +158,7 @@ private:
     std::vector<int> pos_;
 
     std::vector<int> size_;
-    std::vector<Vertex> max_child_;
+    std::vector<Node> max_child_;
     std::vector<int> depth_;
     std::vector<int> parent_;
 
@@ -176,116 +167,129 @@ private:
     Compose compose_;
 
 private:
-    void init_sizes(Tree tree, Vertex cur, Vertex prev) {
+    void dfs_sizes(Tree tree, Node cur, Node prev) {
+        size_[cur.id] = 1;
         depth_[cur.id] = depth_[prev.id] + 1;
         parent_[cur.id] = prev.id;
+        max_child_[cur.id] = Node();
 
         for (const auto& next : tree[cur.id]) {
-            if (next.to == prev) continue;
-            init_sizes(tree, next.to, cur);
+            if (next.to.id == prev.id) continue;
+
+            dfs_sizes(tree, next.to, cur);
 
             size_[cur.id] += size_[next.to.id];
 
-            if (size_[next.to.id] > size_[max_child_[cur.id].id]) {
+            if (max_child_[cur.id].id == 0 || size_[next.to.id] > size_[max_child_[cur.id].id]) {
                 max_child_[cur.id] = next.to;
             }
         }
     }
 
-    void decompose(Tree tree, Vertex cur, Vertex prev) {
-        paths_[total_paths].state.push_back(cur);
+    void decompose(Tree tree, Node cur, Node prev) {
         path_ids_[cur.id] = total_paths;
+        pos_[cur.id] = paths_[total_paths].state.size();
+        paths_[total_paths].state.push_back(cur);
 
         if (max_child_[cur.id].id == 0) {
-            std::reverse(paths_[total_paths].state.begin(),
-                            paths_[total_paths].state.end());
+            std::vector<Node> nodes;
+            nodes.reserve(paths_[total_paths].state.size());
+            for (auto& node : paths_[total_paths].state) {
+                nodes.push_back(Node(node.id, 0, 1));
+            }
 
             paths_[total_paths].segment_tree.init(
-                paths_[total_paths].state,
+                nodes,
                 merge_,
                 update_,
                 compose_
             );
+
             return;
         }
 
         decompose(tree, max_child_[cur.id], cur);
 
         for (const auto& next : tree[cur.id]) {
-            if (next.to == prev || next.to == max_child_[cur.id]) continue;
+            if (next.to.id == prev.id || next.to.id == max_child_[cur.id].id) continue;
+
             ++total_paths;
             paths_.emplace_back(total_paths);
             decompose(tree, next.to, cur);
         }
     }
 
-    auto& get_path(int u) { return paths_[path_ids_[u]]; }
-
-    Node get(int u, int v) {
+    Node query(int u, int v) {
         Node res;
 
-        while (get_path(u).top() != get_path(v).top()) {
-            if (depth_[get_path(u).top().id] > depth_[get_path(v).top().id]) {
+        while (path_ids_[u] != path_ids_[v]) {
+            if (depth_[paths_[path_ids_[u]].top().id] < depth_[paths_[path_ids_[v]].top().id]) {
                 std::swap(u, v);
             }
 
-            res = merge_(res, get_path(u).segment_tree.get(pos_[u], pos_[get_path(u).top().id]));
-            u = parent_[get_path(u).top().id];
+            int path_id = path_ids_[u];
+            int top_pos = 0;
+            int cur_pos = pos_[u];
+
+            res = merge_(res, paths_[path_id].segment_tree.get(top_pos, cur_pos));
+            u = parent_[paths_[path_id].top().id];
         }
 
-        if (u != v) {
-            res = merge_(res, get_path(u).segment_tree.get(pos_[u], pos_[v]));
-        }
+        int left = pos_[u];
+        int right = pos_[v];
+        if (left > right) std::swap(left, right);
+        res = merge_(res, paths_[path_ids_[u]].segment_tree.get(left, right));
 
         return res;
     }
 
     void update(int u, int v, UpdateNode updater) {
-        while (get_path(u).top() != get_path(v).top()) {
-            if (depth_[get_path(u).top().id] > depth_[get_path(v).top().id]) {
+        while (path_ids_[u] != path_ids_[v]) {
+            if (depth_[paths_[path_ids_[u]].top().id] < depth_[paths_[path_ids_[v]].top().id]) {
                 std::swap(u, v);
             }
 
-            get_path(u).segment_tree.update(pos_[u], pos_[get_path(u).top().id], updater);
-            u = parent_[get_path(u).top().id];
+            int path_id = path_ids_[u];
+            int top_pos = 0;
+            int cur_pos = pos_[u];
+
+            paths_[path_id].segment_tree.update(top_pos, cur_pos, updater);
+            u = parent_[paths_[path_id].top().id];
         }
 
-        if (u != v) {
-            get_path(u).segment_tree.update(pos_[u], pos_[v], updater);
-        }
+        int left = pos_[u];
+        int right = pos_[v];
+        if (left > right) std::swap(left, right);
+        paths_[path_ids_[u]].segment_tree.update(left, right, updater);
     }
 
 public:
-    explicit HeavyLightDecomposition(Tree tree)
-        : n((int)tree.size() - 1) {
+    explicit HeavyLightDecomposition(Tree tree, Merge merge, Update update, Compose compose)
+        : n((int)tree.size() - 1)
+        , merge_(merge)
+        , update_(update)
+        , compose_(compose) {
+
         paths_.emplace_back(0);
         path_ids_.resize(n + 1, -1);
         pos_.resize(n + 1, -1);
-
-        size_.resize(n + 1, 1);
-        max_child_.resize(n + 1, Vertex());
+        size_.resize(n + 1, 0);
+        max_child_.resize(n + 1, Node());
         depth_.resize(n + 1, 0);
         parent_.resize(n + 1, 0);
 
-        init_sizes(tree, Vertex(1), Vertex());
-        decompose(tree, Vertex(1), Vertex());
-
-        for (int pid = 0; pid <= total_paths; ++pid) {
-            for (int i = 0; i < paths_[pid].state.size(); ++i) {
-                pos_[paths_[pid].state[i].id] = i;
-            }
-        }
+        dfs_sizes(tree, Node(1), Node());
+        decompose(tree, Node(1), Node());
     }
 
-    Node query(int u, int v) {
-        return get(u, v);
+    Node query_path(int u, int v) {
+        return query(u, v);
     }
 
-    void apply(int u, int v, UpdateNode& updater) {
+    void update_path(int u, int v, UpdateNode& updater) {
         update(u, v, updater);
     }
 };
-
 
 struct Node {
     // code here
@@ -296,8 +300,7 @@ struct UpdateNode {
 
     bool operator==(const UpdateNode& other) const {
         // code here
-        bool is_equal = true;
-        return is_equal;
+        return true;
     }
 };
 
