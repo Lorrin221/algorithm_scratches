@@ -116,21 +116,12 @@ struct Edge {
     Node from, to;
 };
 
-template <typename Node,
-          typename UpdateNode,
-          typename Merge,
-          typename Update,
-          typename Compose>
+template <typename Node>
 struct HeavyPath {
     int id;
     std::vector<Node> state;
-    SegmentTree<Node,
-                UpdateNode,
-                Merge,
-                Update,
-                Compose> segment_tree;
 
-    explicit HeavyPath(int id) : id(id), segment_tree() {}
+    explicit HeavyPath(int id) : id(id) {}
 
     Node top() const {
         return state.front();
@@ -146,14 +137,10 @@ class HeavyLightDecomposition {
 private:
     using Tree = const std::vector<std::vector<Edge<Node>>>&;
     int n;
+    int total_vertices = 0;
     int total_paths = 0;
 
-    std::vector<HeavyPath<
-            Node,
-            UpdateNode,
-            Merge,
-            Update,
-            Compose>> paths_;
+    std::vector<HeavyPath<Node>> paths_;
     std::vector<int> path_ids_;
     std::vector<int> pos_;
 
@@ -165,6 +152,7 @@ private:
     Merge merge_;
     Update update_;
     Compose compose_;
+    SegmentTree<Node, UpdateNode, Merge, Update, Compose> segment_tree_;
 
 private:
     void dfs_sizes(Tree tree, Node cur, Node prev) {
@@ -188,17 +176,11 @@ private:
 
     void decompose(Tree tree, Node cur, Node prev) {
         path_ids_[cur.id] = total_paths;
-        pos_[cur.id] = paths_[total_paths].state.size();
+        pos_[cur.id] = total_vertices;
         paths_[total_paths].state.push_back(cur);
+        total_vertices++;
 
         if (max_child_[cur.id].id == 0) {
-            paths_[total_paths].segment_tree.init(
-                paths_[total_paths].state,
-                merge_,
-                update_,
-                compose_
-            );
-
             return;
         }
 
@@ -213,6 +195,20 @@ private:
         }
     }
 
+    void init_segment_tree() {
+        std::vector<Node> array(n);
+
+        int index = 0;
+        for (const auto& path : paths_) {
+            for (const auto& node : path.state) {
+                array[index] = node;
+                index++;
+            }
+        }
+
+        segment_tree_.init(array, merge_, update_, compose_);
+    }
+
     Node query(int u, int v) {
         Node res;
 
@@ -222,17 +218,16 @@ private:
             }
 
             int path_id = path_ids_[u];
-            int top_pos = 0;
-            int cur_pos = pos_[u];
+            int top = paths_[path_id].top().id;
 
-            res = merge_(res, paths_[path_id].segment_tree.get(top_pos, cur_pos));
-            u = parent_[paths_[path_id].top().id];
+            res = merge_(res, segment_tree_.get(pos_[top], pos_[u]));
+            u = parent_[top];
         }
 
         int left = pos_[u];
         int right = pos_[v];
         if (left > right) std::swap(left, right);
-        res = merge_(res, paths_[path_ids_[u]].segment_tree.get(left, right));
+        res = merge_(res, segment_tree_.get(left, right));
 
         return res;
     }
@@ -244,17 +239,16 @@ private:
             }
 
             int path_id = path_ids_[u];
-            int top_pos = 0;
-            int cur_pos = pos_[u];
+            int top = paths_[path_id].top().id;
 
-            paths_[path_id].segment_tree.update(top_pos, cur_pos, updater);
-            u = parent_[paths_[path_id].top().id];
+            segment_tree_.update(pos_[top], pos_[u], updater);
+            u = parent_[top];
         }
 
         int left = pos_[u];
         int right = pos_[v];
         if (left > right) std::swap(left, right);
-        paths_[path_ids_[u]].segment_tree.update(left, right, updater);
+        segment_tree_.update(left, right, updater);
     }
 
 public:
@@ -274,6 +268,7 @@ public:
 
         dfs_sizes(tree, Node(1), Node());
         decompose(tree, Node(1), Node());
+        init_segment_tree();
     }
 
     Node query_path(int u, int v) {
